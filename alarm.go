@@ -1,78 +1,47 @@
-package main
+package sender
 
 import (
-	"flag"
-	"fmt"
 	"log"
-	"os"
-	"runtime"
+	"time"
 
-	"github.com/710leo/urlooker/modules/alarm/backend"
-	"github.com/710leo/urlooker/modules/alarm/cron"
-	"github.com/710leo/urlooker/modules/alarm/g"
-	"github.com/710leo/urlooker/modules/alarm/judge"
-	"github.com/710leo/urlooker/modules/alarm/receiver"
-	"github.com/710leo/urlooker/modules/alarm/sender"
+	"github.com/toolkits/container/list"
 
-	"github.com/toolkits/file"
+	"github.com/710leo/urlooker/modules/web/backend"
+	"github.com/710leo/urlooker/modules/web/g"
 )
 
-func prepare() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
-}
+func SendToAlarm(Q *list.SafeListLimited, node string) {
+	cfg := g.Config
+	batch := cfg.Alarm.Batch
+	addr := cfg.Alarm.Cluster[node]
 
-func init() {
-	prepare()
+	//todo：rpc 当数据量增大时，rpc调用改为并行方式
+	for {
+		items := Q.PopBackBy(batch)
+		count := len(items)
+		if count == 0 {
+			time.Sleep(time.Duration(cfg.Alarm.SleepTime) * time.Second)
+			continue
+		}
 
-	cfg := flag.String("c", "", "configuration file")
-	version := flag.Bool("v", false, "show version")
-	help := flag.Bool("h", false, "help")
-	flag.Parse()
+		var resp string
+		var err error
+		sendOk := false
+		for i := 0; i < 3; i++ {
+			rpcClient := backend.NewRpcClient(addr)
+			err = rpcClient.Call("Alarm.Send", items, &resp)
+			if err == nil {
+				sendOk = true
+				break
+			}
+			time.Sleep(1)
+		}
 
-	handleVersion(*version)
-	handleHelp(*help)
-	handleConfig(*cfg)
-
-	g.InitRedisConnPool()
-	judge.InitHistoryBigMap()
-	sender.Init()
-	backend.InitClients(g.Config.Web.Addrs)
-}
-
-func main() {
-	go cron.ReadEvent()
-	go cron.SyncStrategies()
-	go sender.PopAllMail(g.Config.Queue.Mail)
-	receiver.Start()
-	log.Println("ok")
-}
-
-func handleVersion(displayVersion bool) {
-	if displayVersion {
-		fmt.Println(g.VERSION)
-		os.Exit(0)
-	}
-}
-
-func handleHelp(displayHelp bool) {
-	if displayHelp {
-		flag.Usage()
-		os.Exit(0)
-	}
-}
-
-func handleConfig(configFile string) {
-	if configFile == "" {
-		configFile = "configs/alarm.yml"
-	}
-
-	if file.IsExist("configs/alarm.local.yml") {
-		configFile = "configs/alarm.local.yml"
-	}
-
-	err := g.Parse(configFile)
-	if err != nil {
-		log.Fatalln(err)
+		if !sendOk {
+			log.Printf("send alarm %s:%s fail: %v", node, addr, err)
+		}
+		if cfg.Debug {
+			log.Println("<=", resp)
+		}
 	}
 }

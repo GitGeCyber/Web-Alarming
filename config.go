@@ -9,16 +9,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type GlobalConfig struct {
-	Debug  bool          `yaml:"debug"`
-	Remain int           `yaml:"remain"` //
-	Rpc    *RpcConfig    `yaml:"rpc"`
-	Web    *WebConfig    `yaml:"web"`
-	Alarm  *AlarmConfig  `yaml:"alarm"`
-	Queue  *QueueConfig  `yaml:"queue"`
-	Mysql  *MysqlConfig  `yaml:"mysql"`
-	Worker *WorkerConfig `yaml:"worker"`
-	Smtp   *SmtpConfig   `yaml:"smtp"`
+type LogConfig struct {
+	Path     string `yaml:"path"`
+	Filename string `yaml:"filename"`
+	Level    string `yaml:"level"`
 }
 
 type MysqlConfig struct {
@@ -27,46 +21,65 @@ type MysqlConfig struct {
 	Max  int    `yaml:"max"`
 }
 
+type HttpConfig struct {
+	Listen string `yaml:"listen"`
+	Secret string `yaml:"secret"`
+}
+
 type RpcConfig struct {
 	Listen string `yaml:"listen"`
 }
 
-type RedisConfig struct {
-	Dsn          string `yaml:"dsn"`
-	MaxIdle      int    `yaml:"maxIdle"`
-	ConnTimeout  int    `yaml:"connTimeout"`
-	ReadTimeout  int    `yaml:"readTimeout"`
-	WriteTimeout int    `yaml:"writeTimeout"`
-}
-
 type AlarmConfig struct {
-	Enabled      bool         `yaml:"enabled"`
-	MinInterval  int64        `yaml:"minInterval"`
-	QueuePattern string       `yaml:"queuePattern"`
-	Redis        *RedisConfig `yaml:"redis"`
+	Enable      bool              `yaml:"enable"`
+	Batch       int               `yaml:"batch"`
+	Replicas    int               `yaml:"replicas"`
+	ConnTimeout int               `yaml:"connTimeout"`
+	CallTimeout int               `yaml:"callTimeout"`
+	MaxConns    int               `yaml:"maxConns"`
+	MaxIdle     int               `yaml:"maxIdle"`
+	SleepTime   int               `yaml:"sleepTime"`
+	Cluster     map[string]string `yaml:"cluster"`
 }
 
-type WebConfig struct {
-	Addrs    []string `yaml:"addrs"`
-	Timeout  int      `yaml:"timeout"`
-	Interval int      `yaml:"interval"`
-}
-
-type QueueConfig struct {
-	Mail string `yaml:"mail"`
-	Sms  string `yaml:"sms"`
-}
-
-type WorkerConfig struct {
-	Sms  int `yaml:"sms"`
-	Mail int `yaml:"mail"`
-}
-
-type SmtpConfig struct {
+type FalconConfig struct {
+	Enable   bool   `yaml:"enable"`
 	Addr     string `yaml:"addr"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	From     string `yaml:"from"`
+	Interval int    `yaml:"interval"`
+}
+
+type LdapConfig struct {
+	Enabled    bool     `yaml:"enabled"`
+	Addr       string   `yaml:"addr"`
+	BindDN     string   `yaml:"bindDN"`
+	BaseDN     string   `yaml:"baseDN`
+	BindPasswd string   `yaml:"bindPasswd"`
+	UserField  string   `yaml:"userField"`
+	Attributes []string `yaml:attributes`
+}
+
+type InternalDnsConfig struct {
+	Enable bool   `yaml:"enable"`
+	CMD    string `yaml:"cmd"`
+}
+
+type GlobalConfig struct {
+	Debug            bool                `yaml:"debug"`
+	Admins           []string            `yaml:"admins"`
+	Salt             string              `yaml:"salt"`
+	Register         bool                `yaml:"register"`
+	ShowDurationMin  int                 `yaml:"showDurationMin"`  //查看最近几分钟内的报警历史和绘图，默认为30分钟
+	KeepDurationHour int                 `yaml:"keepDurationHour"` //保留历史数据时间长度，默认为12小时
+	DNS              string              `yaml:"dns"`              //解析域名的dns服务器地址
+	Http             *HttpConfig         `yaml:"http"`
+	Rpc              *RpcConfig          `yaml:"rpc"`
+	Ldap             *LdapConfig         `yaml:"ldap"`
+	Log              *LogConfig          `yaml:"log"`
+	Mysql            *MysqlConfig        `yaml:"mysql"`
+	Alarm            *AlarmConfig        `yaml:"alarm"`
+	Falcon           *FalconConfig       `yaml:"falcon"`
+	InternalDns      *InternalDnsConfig  `yaml:"internalDns"`
+	MonitorMap       map[string][]string `yaml:"monitorMap"`
 }
 
 var (
@@ -80,7 +93,7 @@ func Parse(cfg string) error {
 	}
 
 	if !file.IsExist(cfg) {
-		return fmt.Errorf("configuration file %s is not exists", cfg)
+		return fmt.Errorf("configuration file %s is nonexistent", cfg)
 	}
 
 	configContent, err := file.ToTrimString(cfg)
@@ -97,6 +110,7 @@ func Parse(cfg string) error {
 	configLock.Lock()
 	defer configLock.Unlock()
 	Config = &c
+	log.Println(Config)
 
 	log.Println("load configuration file", cfg, "successfully")
 	return nil

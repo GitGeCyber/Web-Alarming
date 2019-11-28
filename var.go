@@ -1,36 +1,29 @@
 package g
 
-import "fmt"
+import (
+	"sync"
 
-type HistoryData struct {
-	Timestamp int64   `json:"timestamp"`
-	Value     float64 `json:"value"`
+	"github.com/710leo/urlooker/dataobj"
+)
+
+type DetectedItemSafeMap struct {
+	sync.RWMutex
+	M map[string][]*dataobj.DetectedItem
 }
 
-type Sms struct {
-	Tos     string `json:"tos"`
-	Content string `json:"content"`
+var (
+	DetectedItemMap = &DetectedItemSafeMap{M: make(map[string][]*dataobj.DetectedItem)}
+)
+
+func (this *DetectedItemSafeMap) Get(key string) ([]*dataobj.DetectedItem, bool) {
+	this.RLock()
+	defer this.RUnlock()
+	ipItem, exists := this.M[key]
+	return ipItem, exists
 }
 
-type Mail struct {
-	Tos     string `json:"tos"`
-	Subject string `json:"subject"`
-	Content string `json:"content"`
-}
-
-func (this *Sms) String() string {
-	return fmt.Sprintf(
-		"<Tos:%s, Content:%s>",
-		this.Tos,
-		this.Content,
-	)
-}
-
-func (this *Mail) String() string {
-	return fmt.Sprintf(
-		"<Tos:%s, Subject:%s, Content:%s>",
-		this.Tos,
-		this.Subject,
-		this.Content,
-	)
+func (this *DetectedItemSafeMap) Set(detectedItemMap map[string][]*dataobj.DetectedItem) {
+	this.Lock()
+	defer this.Unlock()
+	this.M = detectedItemMap
 }
