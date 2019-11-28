@@ -1,7 +1,9 @@
-urlooker-agent
+urlooker-alarm
 ============
 
-agent会定时从web组件获取待监控url列表，发起模拟访问，然后将访问结果回报给web组件
+alarm是用于判断是否触发报警条件的组件
+
+alarm会定期从web端获取策略列表，接收到web端发送的检测数据后，对数据进行判断，若触发则产生event数据，将event数据存到 redis 中
 
 ## Installation
 
@@ -9,12 +11,14 @@ agent会定时从web组件获取待监控url列表，发起模拟访问，然后
 # set $GOPATH and $GOROOT
 mkdir -p $GOPATH/src/github.com/urlooker
 cd $GOPATH/src/github.com/urlooker
-git clone https://github.com/710leo/urlooker/modules/agent.git
-cd agent
-go get ./...
+git clone https://github.com/URLooker/alarm.git
+cd alarm
 ./control build
 ./control start
 ```
+
+## 发送短信
+编辑 script/send.sms.sh 适配公司的短信网关
 
 ## Configuration
 
@@ -22,14 +26,43 @@ go get ./...
 
 {
     "debug": false,
-    "hostname": "hostname.1", #hostname.1 和 web组件配置文件中monitorMap的值对应
-    "worker": 1000, # 同时访问url的并发数
+	"remain":10,  #配置策略中支持的最大连续次数
+	"rpc":{
+		"listen":"0.0.0.0:1986"
+	},
     "web": {
-        "addrs": ["127.0.0.1:1985"],
-        "interval": 60,
-        "timeout": 1000
+        "addrs": ["127.0.0.1:1985"], #可以填多个web地址
+        "timeout": 300,
+        "interval": 60
+    },
+    "alarm": {
+        "enabled": true,
+        "minInterval": 180,
+        "queuePattern": "event",
+        "redis": {
+            "dsn": "127.0.0.1:6379",
+            "maxIdle": 5,
+            "connTimeout": 20000,
+            "readTimeout": 20000,
+            "writeTimeout": 20000
+        }
+    },
+    "queue": {
+        "sms": "/sms",
+        "mail": "/mail"
+    },
+    "worker": {
+        "sms": 10,
+        "mail": 50
+    },
+    "smtp": {
+        "addr": "mail.addr:25",
+        "username": "mail@mail.com",
+        "password": "",
+        "from": "mail@mail.com"
     }
 }
+
 
 ```
 

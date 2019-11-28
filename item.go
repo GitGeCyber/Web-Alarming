@@ -1,73 +1,81 @@
-package dataobj
+package api
 
 import (
-	"crypto/md5"
-	"fmt"
-	"io"
+	"log"
+	"time"
+
+	"github.com/710leo/urlooker/dataobj"
+	"github.com/710leo/urlooker/modules/web/g"
+	"github.com/710leo/urlooker/modules/web/model"
+	"github.com/710leo/urlooker/modules/web/sender"
+	"github.com/710leo/urlooker/modules/web/utils"
 )
 
-type IpIdc struct {
-	Ip  string
-	Idc string
+func (this *Web) SendResult(req dataobj.SendResultReq, reply *string) error {
+	for _, arg := range req.CheckResults {
+		itemStatus := model.ItemStatus{
+			Ip:       arg.Ip,
+			Sid:      arg.Sid,
+			RespTime: arg.RespTime,
+			RespCode: arg.RespCode,
+			PushTime: arg.PushTime,
+			Result:   arg.Status,
+		}
+
+		relSidIp := model.RelSidIp{
+			Sid: arg.Sid,
+			Ip:  arg.Ip,
+			Ts:  time.Now().Unix(),
+		}
+
+		err := relSidIp.Save()
+		if err != nil {
+			log.Println("save sid_ip error:", err)
+			*reply = "save sid_ip error:" + err.Error()
+			return nil
+		}
+
+		err = itemStatus.Save()
+		if err != nil {
+			log.Println("save item error:", err)
+			*reply = "save item error:" + err.Error()
+			return nil
+		}
+
+		if g.Config.Alarm.Enable {
+			node, err := sender.NodeRing.GetNode(itemStatus.PK())
+			if err != nil {
+				log.Println("error:", err)
+				*reply = "get node error:" + err.Error()
+				return nil
+			}
+
+			Q := sender.SendQueues[node]
+			isSuccess := Q.PushFront(itemStatus)
+			if !isSuccess {
+				log.Println("push itemStatus error:", itemStatus)
+				*reply = "push itemStatus error"
+				return nil
+			}
+		}
+
+	}
+
+	if g.Config.Falcon.Enable {
+		if len(req.CheckResults) > 0 {
+			utils.PushFalcon(req.CheckResults, req.Hostname)
+		}
+	}
+
+	*reply = ""
+	return nil
 }
 
-//下发给agent的数据结构
-type DetectedItem struct {
-	Sid        int64  `json:"sid"`
-	Method     string `json:"method"`
-	Domain     string `json:"domain"`
-	Target     string `json:"target"`
-	Ip         string `json:"ip"`
-	Keywords   string `json:"keywords"`
-	Timeout    int    `json:"timeout"`
-	Creator    string `json:"creator"`
-	Data       string `json:"data"`
-	Endpoint   string `json:"endpoint"`
-	Tag        string `json:"tag"`
-	ExpectCode string `json:"expect_code"`
-	Idc        string `json:"idc"`
-	Header     string `json:"header"`
-	PostData   string `json:"post_data"`
-}
-
-//agent上报的数据结构
-type CheckResult struct {
-	Sid      int64  `json:"sid"`
-	Domain   string `json:"domain"`
-	Target   string `json:"target"`
-	Creator  string `json:"creator"`
-	Endpoint string `json:"endpoint"`
-	Tag      string `json:"tag"`
-	RespCode string `json:"resp_code"`
-	RespTime int    `json:"resp_time"`
-	Status   int64  `json:"status"`
-	PushTime int64  `json:"push_time"`
-	Ip       string `json:"ip"`
-}
-
-type ItemStatus struct {
-	Id       int64  `json:"id"`
-	Sid      int64  `json:"sid"`
-	Ip       string `json:"ip"`
-	RespTime int    `json:"resp_time"`
-	RespCode string `json:"resp_code"`
-	PushTime int64  `json:"push_time"`
-	Result   int64  `json:"result"`
-}
-
-func (this *ItemStatus) PK() string {
-	h := md5.New()
-	io.WriteString(h, fmt.Sprintf("%s/%s", this.Sid, this.Ip))
-
-	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
-type SendResultReq struct {
-	Hostname     string
-	CheckResults []*CheckResult
-}
-
-type GetItemResponse struct {
-	Message string
-	Data    []*DetectedItem
+func (this *Web) GetItem(hostname string, resp *dataobj.GetItemResponse) error {
+	items, exists := g.DetectedItemMap.Get(hostname)
+	if !exists {
+		resp.Message = "no found item assigned to " + hostname
+	}
+	resp.Data = items
+	return nil
 }

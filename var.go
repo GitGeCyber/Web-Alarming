@@ -1,13 +1,36 @@
 package g
 
-import (
-	"github.com/toolkits/container/list"
-)
+import "fmt"
 
-var CheckResultQueue *list.SafeLinkedList
-var WorkerChan chan int
+type HistoryData struct {
+	Timestamp int64   `json:"timestamp"`
+	Value     float64 `json:"value"`
+}
 
-func Init() {
-	WorkerChan = make(chan int, Config.Worker)
-	CheckResultQueue = list.NewSafeLinkedList()
+type Sms struct {
+	Tos     string `json:"tos"`
+	Content string `json:"content"`
+}
+
+type Mail struct {
+	Tos     string `json:"tos"`
+	Subject string `json:"subject"`
+	Content string `json:"content"`
+}
+
+func (this *Sms) String() string {
+	return fmt.Sprintf(
+		"<Tos:%s, Content:%s>",
+		this.Tos,
+		this.Content,
+	)
+}
+
+func (this *Mail) String() string {
+	return fmt.Sprintf(
+		"<Tos:%s, Subject:%s, Content:%s>",
+		this.Tos,
+		this.Subject,
+		this.Content,
+	)
 }
