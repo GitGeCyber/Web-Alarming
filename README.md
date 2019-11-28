@@ -1,9 +1,16 @@
-urlooker-alarm
+urlooker-web
 ============
 
-alarm是用于判断是否触发报警条件的组件
+Web组件主要用于
 
-alarm会定期从web端获取策略列表，接收到web端发送的检测数据后，对数据进行判断，若触发则产生event数据，将event数据存到 redis 中
+- 监控项的添加
+- 告警组人员管理
+- 查看url访问质量绘图
+
+## 常见问题
+- [wiki说明][1]
+- [常见问题][2]
+- 初始用户名密码：admin/password
 
 ## Installation
 
@@ -11,58 +18,60 @@ alarm会定期从web端获取策略列表，接收到web端发送的检测数据
 # set $GOPATH and $GOROOT
 mkdir -p $GOPATH/src/github.com/urlooker
 cd $GOPATH/src/github.com/urlooker
-git clone https://github.com/URLooker/alarm.git
-cd alarm
+git clone https://github.com/URLooker/web.git
+cd web
 ./control build
 ./control start
 ```
-
-## 发送短信
-编辑 script/send.sms.sh 适配公司的短信网关
 
 ## Configuration
 
 ```
 
-{
-    "debug": false,
-	"remain":10,  #配置策略中支持的最大连续次数
-	"rpc":{
-		"listen":"0.0.0.0:1986"
-	},
-    "web": {
-        "addrs": ["127.0.0.1:1985"], #可以填多个web地址
-        "timeout": 300,
-        "interval": 60
+    "debug": true,
+    "salt": "have fun!",
+    "admin":["admin"], #这里的用户是会变成admin用户
+    "past": 30, #查看最近几分钟内的报警历史和绘图，默认为30分钟
+    "http": {
+        "listen": "0.0.0.0:1984",
+        "secret": "secret"
     },
-    "alarm": {
-        "enabled": true,
-        "minInterval": 180,
-        "queuePattern": "event",
-        "redis": {
-            "dsn": "127.0.0.1:6379",
-            "maxIdle": 5,
-            "connTimeout": 20000,
-            "readTimeout": 20000,
-            "writeTimeout": 20000
+    "rpc": {
+        "listen": "0.0.0.0:1985"
+    },
+    "mysql": {
+        "addr": "root:123456@tcp(127.0.0.1:3306)/urlooker?charset=utf8&&loc=Asia%2FShanghai",
+        "idle": 10,
+        "max": 20
+    },
+    "alarm":{
+        "enable": true,
+        "batch": 200,
+        "replicas": 500,
+        "connTimeout": 1000,
+        "callTimeout": 5000,
+        "maxConns": 32,
+        "maxIdle": 32,
+        "sleepTime":30,
+        "cluster":{
+            "node-1":"127.0.0.1:1986"
         }
     },
-    "queue": {
-        "sms": "/sms",
-        "mail": "/mail"
+    "monitorMap": { 
+        "default":["hostname.1"], #监控指标多了之后agent地址可以填多个
     },
-    "worker": {
-        "sms": 10,
-        "mail": 50
+    "falcon":{
+        "enable": false, # 为true表示向falcon推送数据
+        "addr":"http://falcon.transfer.addr/api/push",
+        "interval": 60
     },
-    "smtp": {
-        "addr": "mail.addr:25",
-        "username": "mail@mail.com",
-        "password": "",
-        "from": "mail@mail.com"
+    "internalDns":{ #通过公司内部接口获取url对应ip所在机房
+        "enable": false,
+        "addr":""
     }
-}
-
 
 ```
 
+
+  [1]: https://github.com/URLooker/wiki
+  [2]: https://github.com/URLooker/wiki/wiki/FAQ
