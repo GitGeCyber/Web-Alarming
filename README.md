@@ -1,73 +1,35 @@
-## [urlooker][1]
-监控web服务可用性及访问质量，采用go语言编写，易于安装和二次开发
+urlooker-agent
+============
 
-## Feature
-- 返回状态码检测
-- 页面响应时间检测
-- 页面关键词匹配检测
-- 自定义Header
-- GET、POST、PUT访问
-- 自定义POST BODY
-- 检测结果支持向open-falcon推送
+agent会定时从web组件获取待监控url列表，发起模拟访问，然后将访问结果回报给web组件
 
-## Architecture
-![此处输入图片的描述][2]
+## Installation
 
-## ScreenShot
-
-![看图][3]
-
-![此处输入图片的描述][4]
-
-![添加监控项][5]
-
-## 常见问题
-- [wiki手册][6]
-- [常见问题][7]
-- 初始用户名密码：admin/password
-
-## Install
-
-#### 源码安装
-###### 安装依赖
-```
-yum install -y redis
-yum install -y mysql-server
-```
-###### 导入数据库
-```
-wget https://raw.githubusercontent.com/710leo/urlooker/master/sql/schema.sql
-mysql -h 127.0.0.1 -u root -p < schema.sql
-```
-
-###### 安装组件
 ```bash
 # set $GOPATH and $GOROOT
-mkdir -p $GOPATH/src/github.com/710leo
-cd $GOPATH/src/github.com/710leo
-git clone https://github.com/710leo/urlooker.git
+mkdir -p $GOPATH/src/github.com/urlooker
+cd $GOPATH/src/github.com/urlooker
+git clone https://github.com/710leo/urlooker/modules/agent.git
+cd agent
 go get ./...
 ./control build
-./control start all
+./control start
 ```
 
-打开浏览器访问 http://127.0.0.1:1984 即可
+## Configuration
 
+```
 
-## 答疑
-QQ交流群：556988374
+{
+    "debug": false,
+    "hostname": "hostname.1", #hostname.1 和 web组件配置文件中monitorMap的值对应
+    "worker": 1000, # 同时访问url的并发数
+    "web": {
+        "addrs": ["127.0.0.1:1985"],
+        "interval": 60,
+        "timeout": 1000
+    }
+}
 
-## Thanks
-一些功能参考了open-falcon，感谢 [UlricQin][9] & [laiwei][10]
+```
 
-
-  [1]: https://github.com/urlooker
-  [2]: https://github.com/urlooker/wiki/raw/master/img/urlooker4.png
-  [3]: https://github.com/urlooker/wiki/raw/master/img/urlooker1.png
-  [4]: https://github.com/urlooker/wiki/raw/master/img/urlooker3.png
-  [5]: https://github.com/urlooker/wiki/raw/master/img/urlooker2.png
-  [6]: https://github.com/URLooker/web
-  [7]: https://github.com/URLooker/agent
-  [8]: https://github.com/URLooker/alarm
-  [9]: http://ulricqin.com/
-  [10]: https://github.com/laiwei
